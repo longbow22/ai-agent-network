@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Agent Network</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d12; --surface: #13131a; --card: #1a1a24;
+      --border: rgba(255,255,255,0.07); --border-strong: rgba(255,255,255,0.13);
+      --text: #e8e8f0; --muted: #888899; --subtle: #333344;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 24px 16px 48px;
+    }
+    header { text-align: center; margin-bottom: 28px; }
+    header h1 { font-size: 21px; font-weight: 600; color: #fff; margin-bottom: 5px; letter-spacing: -.3px; }
+    header p { font-size: 13px; color: var(--muted); }
+    .container { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* Section labels */
+    .section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+
+    /* Roster */
+    .roster-group { margin-bottom: 4px; }
+    .roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+
+    .agent-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 11px; padding: 11px;
+      transition: border-color 0.2s, border-width 0.2s;
+    }
+    .agent-card.active { border-width: 1.5px; }
+    .agent-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .avatar {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 700; color: #fff; flex-shrink: 0; letter-spacing: .3px;
+    }
+    .agent-name { font-size: 11px; font-weight: 600; color: #fff; }
+    .agent-role { font-size: 10px; color: var(--muted); margin-bottom: 7px; }
+    .agent-status { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--subtle); flex-shrink: 0; transition: background .2s; }
+    .dot.thinking { animation: pu 1s infinite; }
+    @keyframes pu { 0%,100%{opacity:1} 50%{opacity:.25} }
+    .status-label { font-size: 10px; color: var(--muted); }
+
+    /* Feed */
+    .feed {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px;
+      min-height: 360px; max-height: 460px;
+      overflow-y: auto; display: flex; flex-direction: column; gap: 18px;
+      scroll-behavior: smooth;
+    }
+    .feed::-webkit-scrollbar { width: 3px; }
+    .feed::-webkit-scrollbar-thumb { background: var(--subtle); border-radius: 2px; }
+
+    .empty-state { margin: auto; text-align: center; }
+    .empty-state p { font-size: 13px; color: var(--muted); line-height: 1.8; margin-bottom: 14px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .chip {
+      background: var(--card); border: 1px solid var(--border-strong);
+      border-radius: 999px; padding: 5px 13px;
+      font-size: 11px; color: var(--muted); cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .chip:hover { border-color: rgba(255,255,255,.28); color: var(--text); }
+
+    .user-msg { display: flex; justify-content: flex-end; }
+    .user-bubble {
+      background: var(--card); border: 1px solid var(--border-strong);
+      border-radius: 13px; padding: 8px 14px;
+      max-width: 75%; font-size: 14px; color: var(--text); line-height: 1.5;
+    }
+
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; letter-spacing: .4px;
+    }
+    .msg-body { flex: 1; min-width: 0; }
+    .msg-header { font-size: 10px; color: var(--muted); margin-bottom: 5px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+    .msg-content { font-size: 14px; line-height: 1.7; color: var(--text); word-break: break-word; }
+    .msg-content strong { color: #fff; font-weight: 600; }
+    .msg-content pre {
+      background: #09090f; border: 1px solid rgba(255,255,255,.08);
+      border-radius: 8px; padding: 12px 16px;
+      overflow-x: auto; font-family: 'Menlo','Monaco','Courier New',monospace;
+      font-size: 12px; margin: 10px 0; line-height: 1.65;
+      color: #c9d1d9; white-space: pre-wrap;
+    }
+    .lang-tag {
+      display: inline-block; font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 4px; margin-bottom: 6px;
+      letter-spacing: .5px; text-transform: uppercase;
+    }
+
+    .thinking-dots { display: flex; gap: 4px; padding: 4px 0; }
+    .thinking-dots span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--subtle); animation: bo 1.2s infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: .2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bo { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+    .err-box {
+      padding: 12px 16px; background: rgba(220,50,50,.1);
+      border: 1px solid rgba(220,50,50,.22); border-radius: 10px;
+      font-size: 13px; color: #f87171;
+    }
+
+    /* Input */
+    .input-bar { display: flex; gap: 8px; }
+    .input-bar input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border-strong);
+      border-radius: 10px; padding: 10px 14px; font-size: 14px; color: var(--text);
+      outline: none; font-family: inherit; transition: border-color .15s;
+    }
+    .input-bar input::placeholder { color: #444455; }
+    .input-bar input:focus { border-color: rgba(255,255,255,.22); }
+    .input-bar button {
+      background: #fff; color: #000; border: none;
+      border-radius: 10px; padding: 10px 18px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: opacity .15s;
+    }
+    .input-bar button:hover { opacity: .86; }
+    .input-bar button:disabled { opacity: .32; cursor: not-allowed; }
+
+    @media(max-width:500px) { .roster { grid-template-columns: repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AI Agent Network</h1>
+  <p>NEXUS orchestrates creative and coding specialists — they collaborate to complete any request.</p>
+</header>
+
+<div class="container">
+
+  <div class="roster-group">
+    <div class="section-label">Creative Agents</div>
+    <div class="roster" id="roster-creative"></div>
+  </div>
+
+  <div class="roster-group">
+    <div class="section-label">Code Agents</div>
+    <div class="roster" id="roster-code"></div>
+  </div>
+
+  <div class="feed" id="feed">
+    <div class="empty-state">
+      <p>The network is standing by. Try one of these:</p>
+      <div class="chips">
+        <button class="chip" onclick="quick('Build a landing page for a yoga studio')">Landing page — yoga studio ↗</button>
+        <button class="chip" onclick="quick('Write a Python script that scrapes a webpage and saves data to CSV')">Python web scraper ↗</button>
+        <button class="chip" onclick="quick('Write a C++ binary search tree with insert, search, and delete')">C++ binary search tree ↗</button>
+        <button class="chip" onclick="quick('Create a C# REST API controller for a products endpoint')">C# REST API controller ↗</button>
+        <button class="chip" onclick="quick('Write a TypeScript class for a shopping cart with generics')">TypeScript shopping cart ↗</button>
+        <button class="chip" onclick="quick('Create social media ads for a coffee brand')">Ad campaign — coffee brand ↗</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <input id="inp" type="text"
+      placeholder='e.g. "Write a Python Flask API and an HTML frontend for it"'
+      onkeydown="if(event.key==='Enter')go()" />
+    <button id="sb" onclick="go()">Send ↗</button>
+  </div>
+
+</div>
+
+<script>
+const AG = {
+
+  /* ── ORCHESTRATOR ─────────────────────────────────── */
+  nexus: {
+    id:'nexus', name:'NEXUS', role:'Orchestrator', init:'NX', color:'#7F77DD', group:'creative',
+    sys:`You are NEXUS, an AI orchestrator managing a team of creative and coding specialists.
+Analyze the user request and output ONLY valid JSON — no markdown fences, no extra text:
+{"summary":"one sentence plan","steps":[{"agent":"AGENT_ID","task":"specific instruction","receives_previous":false}]}
+
+Available agents:
+CREATIVE:
+  "web"      = WEBCRAFT  — builds complete HTML/CSS/JS webpages and UI components
+  "content"  = FORGE     — writes articles, copy, product descriptions, scripts
+  "ad"       = AMPLIFY   — ad campaigns, social media, email marketing
+
+CODE:
+  "python"   = PYCRAFT   — Python scripts, APIs, data science, automation
+  "cpp"      = COREPP    — C++ programs, algorithms, systems, game logic
+  "csharp"   = SHARPE    — C# apps, .NET, ASP.NET, Unity scripts, REST APIs
+  "js"       = JSFLOW    — JavaScript / TypeScript, Node.js, React, browser code
+  "sql"      = DATALINK  — SQL queries, schema design, stored procedures
+  "bash"     = SHELLEX   — Bash/shell scripts, Linux automation, CI/CD pipelines
+
+Rules:
+- Only include agents actually needed
+- Set receives_previous:true if an agent needs prior output (e.g. WEBCRAFT needs copy from FORGE, or a frontend agent needs an API spec from a backend agent)
+- Order steps logically
+- Be very specific in task descriptions`
+  },
+
+  /* ── CREATIVE AGENTS ──────────────────────────────── */
+  web: {
+    id:'web', name:'WEBCRAFT', role:'Web Builder', init:'WC', color:'#1D9E75', group:'creative',
+    sys:`You are WEBCRAFT, an expert web developer. Build beautiful, complete, working HTML pages.
+Format: short intro, then complete HTML in a fenced code block, then a 1-line closing note.
+Use modern CSS, clean typography (Google Fonts via @import), all styles inline. Make it production-ready.
+If given content or an API spec from another agent, incorporate it seamlessly.`
+  },
+  content: {
+    id:'content', name:'FORGE', role:'Content Creator', init:'FG', color:'#639922', group:'creative',
+    sys:`You are FORGE, a creative content specialist. Write compelling, well-structured copy.
+If your output goes to WEBCRAFT, label sections clearly: # Hero Headline, ## Tagline, ## About, ## CTA, etc.
+Be concise but powerful.`
+  },
+  ad: {
+    id:'ad', name:'AMPLIFY', role:'Ad Specialist', init:'AM', color:'#BA7517', group:'creative',
+    sys:`You are AMPLIFY, an advertising expert. Create targeted, compelling campaigns.
+Provide 2-3 variations with labels (Version A / B). Include headline, body copy, and CTA. Add a brief strategic note.`
+  },
+
+  /* ── CODE AGENTS ──────────────────────────────────── */
+  python: {
+    id:'python', name:'PYCRAFT', role:'Python', init:'PY', color:'#3b82f6', group:'code',
+    sys:`You are PYCRAFT, a Python expert. Write clean, modern, well-commented Python code.
+Always use:
+- Type hints (Python 3.10+)
+- Docstrings on functions/classes
+- f-strings for formatting
+- Proper error handling (try/except)
+Format: brief intro, then code in a \`\`\`python fenced block, then usage example and notes.
+If given output from another agent (e.g. an API spec or data format), implement it faithfully in Python.`
+  },
+  cpp: {
+    id:'cpp', name:'COREPP', role:'C++', init:'C+', color:'#ef4444', group:'code',
+    sys:`You are COREPP, a C++ expert (C++17/20). Write clean, efficient, modern C++.
+Always use:
+- Smart pointers (unique_ptr, shared_ptr) where appropriate
+- const correctness
+- RAII principles
+- Standard library containers and algorithms
+- Comments explaining non-obvious logic
+Format: brief intro, then code in a \`\`\`cpp fenced block, then compilation command and usage notes.
+If given output from another agent, implement it faithfully in C++.`
+  },
+  csharp: {
+    id:'csharp', name:'SHARPE', role:'C#', init:'C#', color:'#8b5cf6', group:'code',
+    sys:`You are SHARPE, a C# and .NET expert. Write clean, modern C# (C# 10+).
+Always use:
+- Nullable reference types
+- async/await for async operations
+- LINQ where appropriate
+- XML doc comments on public members
+- Proper using statements
+Format: brief intro, then code in a \`\`\`csharp fenced block, then notes on dependencies/NuGet packages if needed.
+If given output from another agent, implement it faithfully in C#.`
+  },
+  js: {
+    id:'js', name:'JSFLOW', role:'JS / TypeScript', init:'TS', color:'#f59e0b', group:'code',
+    sys:`You are JSFLOW, a JavaScript and TypeScript expert. Prefer TypeScript when possible.
+Always use:
+- TypeScript types/interfaces (if TS)
+- async/await over callbacks or raw Promises
+- Modern ES2022+ syntax
+- JSDoc comments for plain JS
+Format: brief intro, then code in a \`\`\`typescript (or \`\`\`javascript) fenced block, then usage notes.
+If given output from another agent (e.g. a backend API), write frontend/client code for it.`
+  },
+  sql: {
+    id:'sql', name:'DATALINK', role:'SQL / Database', init:'DB', color:'#06b6d4', group:'code',
+    sys:`You are DATALINK, a SQL and database design expert. Write clean, optimized SQL.
+Always:
+- Use standard ANSI SQL (note any dialect-specific syntax for PostgreSQL/MySQL/SQLite/MSSQL)
+- Include indexes where appropriate
+- Add comments on complex queries
+- Show CREATE TABLE schema before queries when relevant
+Format: brief intro, then code in a \`\`\`sql fenced block, then notes on indexes and performance considerations.`
+  },
+  bash: {
+    id:'bash', name:'SHELLEX', role:'Bash / Shell', init:'SH', color:'#10b981', group:'code',
+    sys:`You are SHELLEX, a Bash and shell scripting expert. Write robust, portable shell scripts.
+Always:
+- Start scripts with #!/usr/bin/env bash
+- Use set -euo pipefail for safety
+- Quote variables to handle spaces: "$var"
+- Add comments explaining each section
+- Include usage/help text in scripts
+Format: brief intro, then code in a \`\`\`bash fenced block, then chmod and usage instructions.`
+  }
+};
+
+/* ── Language tag colors for display ─── */
+const LANG_COLORS = {
+  python:  { bg:'rgba(59,130,246,.15)',  text:'#93c5fd' },
+  cpp:     { bg:'rgba(239,68,68,.15)',   text:'#fca5a5' },
+  csharp:  { bg:'rgba(139,92,246,.15)',  text:'#c4b5fd' },
+  js:      { bg:'rgba(245,158,11,.15)',  text:'#fcd34d' },
+  sql:     { bg:'rgba(6,182,212,.15)',   text:'#67e8f9' },
+  bash:    { bg:'rgba(16,185,129,.15)',  text:'#6ee7b7' },
+};
+
+let busy = false;
+
+/* ── Render rosters ──────────────────── */
+function buildRoster(groupId, containerId) {
+  const el = document.getElementById(containerId);
+  Object.values(AG).filter(a => a.group === groupId).forEach(a => {
+    const d = document.createElement('div');
+    d.className = 'agent-card'; d.id = 'c' + a.id;
+    d.innerHTML = `
+      <div class="agent-top">
+        <div class="avatar" style="background:${a.color}">${a.init}</div>
+        <span class="agent-name">${a.name}</span>
+      </div>
+      <div class="agent-role">${a.role}</div>
+      <div class="agent-status">
+        <span class="dot" id="d${a.id}"></span>
+        <span class="status-label" id="s${a.id}">idle</span>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+buildRoster('creative', 'roster-creative');
+buildRoster('code',     'roster-code');
+
+function setS(id, st) {
+  const dot = document.getElementById('d'+id);
+  const lbl = document.getElementById('s'+id);
+  const card = document.getElementById('c'+id);
+  if (!dot) return;
+  dot.className = 'dot' + (st==='thinking' ? ' thinking' : '');
+  dot.style.background = st==='thinking' ? AG[id].color : st==='done' ? '#4ade80' : 'var(--subtle)';
+  lbl.textContent = st;
+  lbl.style.color  = st==='thinking' ? AG[id].color : st==='done' ? '#4ade80' : 'var(--muted)';
+  card.classList.toggle('active', st==='thinking');
+  card.style.borderColor = st==='thinking' ? AG[id].color : '';
+}
+function resetAll() { Object.keys(AG).forEach(id => setS(id, 'idle')); }
+
+const feed = document.getElementById('feed');
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function fmt(agentId, text) {
+  const lc = LANG_COLORS[agentId];
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  return parts.map(p => {
+    if (p.startsWith('```')) {
+      const code = p.replace(/^```[\w#+-]*\n?/, '').replace(/\n?```\s*$/, '').trim();
+      const langMatch = p.match(/^```([\w#+-]+)/);
+      const langLabel = lc && langMatch ? `<span class="lang-tag" style="background:${lc.bg};color:${lc.text}">${langMatch[1]}</span><br>` : '';
+      return `${langLabel}<pre>${esc(code)}</pre>`;
+    }
+    return esc(p).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  }).join('');
+}
+
+function addUserMsg(t) {
+  const d = document.createElement('div');
+  d.className = 'user-msg';
+  d.innerHTML = `<div class="user-bubble">${esc(t)}</div>`;
+  feed.appendChild(d); feed.scrollTop = feed.scrollHeight;
+}
+
+function addThinking(id) {
+  const a = AG[id], d = document.createElement('div');
+  d.className = 'msg'; d.id = 'th'+id;
+  d.innerHTML = `<div class="msg-avatar" style="background:${a.color}">${a.init}</div><div class="msg-body"><div class="msg-header">${a.name} · ${a.role}</div><div class="thinking-dots"><span></span><span></span><span></span></div></div>`;
+  feed.appendChild(d); feed.scrollTop = feed.scrollHeight;
+}
+
+function replaceThinking(id, text) {
+  const d = document.getElementById('th'+id);
+  if (!d) return;
+  const a = AG[id];
+  d.innerHTML = `<div class="msg-avatar" style="background:${a.color}">${a.init}</div><div class="msg-body"><div class="msg-header">${a.name} · ${a.role}</div><div class="msg-content">${fmt(id, text)}</div></div>`;
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function addErr(msg) {
+  const d = document.createElement('div');
+  d.className = 'err-box'; d.textContent = 'Error: ' + msg;
+  feed.appendChild(d); feed.scrollTop = feed.scrollHeight;
+}
+
+async function apiCall(agentId, userMsg) {
+  setS(agentId, 'thinking');
+  addThinking(agentId);
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514', max_tokens: 1500,
+      system: AG[agentId].sys,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const text = (data.content || []).map(b => b.text || '').join('');
+  setS(agentId, 'done');
+  return text;
+}
+
+async function go() {
+  if (busy) return;
+  const inp = document.getElementById('inp');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  inp.value = ''; busy = true;
+  document.getElementById('sb').disabled = true;
+  feed.innerHTML = '';
+  resetAll();
+  addUserMsg(txt);
+
+  try {
+    const planRaw = await apiCall('nexus', `User request: "${txt}"\n\nCreate an execution plan.`);
+    let plan;
+    try {
+      const cl = planRaw.replace(/```json\n?|```\n?/g,'').trim();
+      plan = JSON.parse(cl.slice(cl.indexOf('{'), cl.lastIndexOf('}')+1));
+    } catch(e) {
+      replaceThinking('nexus', planRaw); busy = false;
+      document.getElementById('sb').disabled = false; return;
+    }
+    const names = (plan.steps||[]).map(s => AG[s.agent]?.name || s.agent).join(' → ');
+    replaceThinking('nexus', `**Plan:** ${plan.summary}\n\n**Routing to:** ${names}`);
+
+    let prev = '';
+    for (const step of (plan.steps||[])) {
+      if (!AG[step.agent]) continue;
+      let prompt = step.task;
+      if (step.receives_previous && prev) prompt += `\n\n---\nFrom previous agent:\n${prev}\n---`;
+      const out = await apiCall(step.agent, prompt);
+      replaceThinking(step.agent, out);
+      prev = out;
+    }
+  } catch(err) {
+    Object.keys(AG).forEach(id => { const el=document.getElementById('th'+id); if(el)el.remove(); });
+    addErr(err.message); resetAll();
+  }
+  busy = false;
+  document.getElementById('sb').disabled = false;
+}
+
+function quick(txt) { document.getElementById('inp').value = txt; go(); }
+</script>
+</body>
+</html>
