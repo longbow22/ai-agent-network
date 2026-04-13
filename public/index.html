@@ -1,377 +1,569 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Agent Network</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0d0d12; --surface: #13131a; --card: #1a1a24;
-      --border: rgba(255,255,255,0.07); --border-strong: rgba(255,255,255,0.13);
-      --text: #e8e8f0; --muted: #888899; --subtle: #333344;
-    }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
-    header { text-align: center; margin-bottom: 28px; }
-    header h1 { font-size: 21px; font-weight: 600; color: #fff; margin-bottom: 5px; letter-spacing: -.3px; }
-    header p { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
-    .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-    .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 10px; font-size: 11px; cursor: default; }
-    .badge.on  { background: rgba(0,173,181,0.15); border: 1px solid rgba(0,173,181,0.3); color: #00adb5; }
-    .badge.off { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); }
-    .badge.warn { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; cursor: pointer; }
-    .bdot { width: 6px; height: 6px; border-radius: 50%; }
-    .on .bdot  { background: #00adb5; }
-    .off .bdot { background: var(--muted); }
-    .warn .bdot { background: #fbbf24; }
-    .container { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 14px; }
-    .section-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-    .roster-group { margin-bottom: 4px; }
-    .roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-    .agent-card { background: var(--card); border: 1px solid var(--border); border-radius: 11px; padding: 11px; transition: border-color 0.2s, border-width 0.2s; }
-    .agent-card.active { border-width: 1.5px; }
-    .agent-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-    .avatar { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #fff; flex-shrink: 0; }
-    .agent-name { font-size: 11px; font-weight: 600; color: #fff; }
-    .agent-role { font-size: 10px; color: var(--muted); margin-bottom: 7px; }
-    .agent-status { display: flex; align-items: center; gap: 5px; }
-    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--subtle); flex-shrink: 0; transition: background .2s; }
-    .dot.thinking { animation: pu 1s infinite; }
-    @keyframes pu { 0%,100%{opacity:1} 50%{opacity:.25} }
-    .status-label { font-size: 10px; color: var(--muted); }
-    .feed { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; min-height: 360px; max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; scroll-behavior: smooth; }
-    .feed::-webkit-scrollbar { width: 3px; }
-    .feed::-webkit-scrollbar-thumb { background: var(--subtle); border-radius: 2px; }
-    .empty-state { margin: auto; text-align: center; }
-    .empty-state p { font-size: 13px; color: var(--muted); line-height: 1.8; margin-bottom: 14px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .chip { background: var(--card); border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 13px; font-size: 11px; color: var(--muted); cursor: pointer; transition: border-color .15s, color .15s; }
-    .chip:hover { border-color: rgba(255,255,255,.28); color: var(--text); }
-    .user-msg { display: flex; justify-content: flex-end; }
-    .user-bubble { background: var(--card); border: 1px solid var(--border-strong); border-radius: 13px; padding: 8px 14px; max-width: 75%; font-size: 14px; color: var(--text); line-height: 1.5; }
-    .msg { display: flex; gap: 10px; align-items: flex-start; }
-    .msg-avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
-    .msg-body { flex: 1; min-width: 0; }
-    .msg-header { font-size: 10px; color: var(--muted); margin-bottom: 5px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
-    .msg-content { font-size: 14px; line-height: 1.7; color: var(--text); word-break: break-word; }
-    .msg-content strong { color: #fff; font-weight: 600; }
-    .msg-content pre { background: #09090f; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 12px 16px; overflow-x: auto; font-family: 'Menlo','Monaco','Courier New',monospace; font-size: 12px; margin: 10px 0; line-height: 1.65; color: #c9d1d9; white-space: pre-wrap; }
-    .lang-tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; margin-bottom: 6px; letter-spacing: .5px; text-transform: uppercase; }
-    .thinking-dots { display: flex; gap: 4px; padding: 4px 0; }
-    .thinking-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--subtle); animation: bo 1.2s infinite; }
-    .thinking-dots span:nth-child(2) { animation-delay: .2s; }
-    .thinking-dots span:nth-child(3) { animation-delay: .4s; }
-    @keyframes bo { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
-    .pub-wrap { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-    .pub-banner { display: flex; align-items: center; gap: 12px; border-radius: 10px; padding: 11px 14px; }
-    .pub-banner.netlify { background: rgba(0,173,181,0.1); border: 1px solid rgba(0,173,181,0.28); }
-    .pub-banner.railway { background: rgba(29,158,117,0.1); border: 1px solid rgba(29,158,117,0.28); }
-    .pub-banner.error   { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); }
-    .pub-icon { font-size: 16px; flex-shrink: 0; }
-    .pub-text { flex: 1; min-width: 0; }
-    .pub-label { font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 3px; }
-    .pub-banner.netlify .pub-label { color: #00adb5; }
-    .pub-banner.railway .pub-label { color: #34d399; }
-    .pub-banner.error   .pub-label { color: #fbbf24; }
-    .pub-link { font-size: 12px; color: #fff; word-break: break-all; }
-    .pub-link a { color: inherit; opacity: .8; text-decoration: none; }
-    .pub-link a:hover { opacity: 1; text-decoration: underline; }
-    .pub-note { font-size: 11px; color: var(--muted); }
-    .open-btn { border: none; border-radius: 7px; padding: 6px 12px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; transition: opacity .15s; color: #fff; }
-    .pub-banner.netlify .open-btn { background: #00adb5; }
-    .pub-banner.railway .open-btn { background: #1D9E75; }
-    .open-btn:hover { opacity: .82; }
-    .pages-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
-    .pages-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .pages-list { display: flex; flex-direction: column; gap: 8px; }
-    .page-row { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; }
-    .page-row-info { flex: 1; min-width: 0; }
-    .page-row-name { font-size: 13px; color: var(--text); text-transform: capitalize; margin-bottom: 3px; }
-    .page-row-links { display: flex; gap: 12px; flex-wrap: wrap; }
-    .page-row-links a { font-size: 11px; text-decoration: none; }
-    .page-row-links a.netlify-link { color: #00adb5; }
-    .page-row-links a.railway-link { color: #34d399; }
-    .page-row-links a:hover { text-decoration: underline; }
-    .del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; transition: color .15s; flex-shrink: 0; }
-    .del-btn:hover { color: #f87171; }
-    .no-pages { font-size: 13px; color: var(--muted); text-align: center; padding: 8px 0; }
-    .err-box { padding: 12px 16px; background: rgba(220,50,50,.1); border: 1px solid rgba(220,50,50,.22); border-radius: 10px; font-size: 13px; color: #f87171; }
-    .input-bar { display: flex; gap: 8px; }
-    .input-bar input { flex: 1; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; padding: 10px 14px; font-size: 14px; color: var(--text); outline: none; font-family: inherit; transition: border-color .15s; }
-    .input-bar input::placeholder { color: #444455; }
-    .input-bar input:focus { border-color: rgba(255,255,255,.22); }
-    .input-bar button { background: #fff; color: #000; border: none; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity .15s; }
-    .input-bar button:hover { opacity: .86; }
-    .input-bar button:disabled { opacity: .32; cursor: not-allowed; }
-    @media(max-width:500px) { .roster { grid-template-columns: repeat(2,1fr); } }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Agent Network</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d12;--surface:#13131a;--card:#1a1a24;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8e8f0;--muted:#888899;--dim:#333344;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 60px}
+h1{font-size:20px;font-weight:600;color:#fff;margin-bottom:4px}
+header{text-align:center;margin-bottom:24px}
+header p{font-size:13px;color:var(--muted)}
+.wrap{width:100%;max-width:820px;display:flex;flex-direction:column;gap:12px}
+
+/* agent cards */
+.section-title{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:4px}
+.ac{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;transition:border-color .2s}
+.ac.on{border-width:1.5px}
+.ac-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0}
+.ac-name{font-size:11px;font-weight:600;color:#fff}
+.ac-role{font-size:10px;color:var(--muted);margin-bottom:6px}
+.ac-status{display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:background .2s}
+.dot.pulse{animation:pu 1s infinite}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.2}}
+.sl{font-size:10px;color:var(--muted)}
+
+/* feed */
+.feed{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px;min-height:340px;max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.feed::-webkit-scrollbar{width:3px}
+.feed::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px}
+.empty{margin:auto;text-align:center;font-size:13px;color:var(--muted);line-height:1.9}
+.chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:12px}
+.chip{background:var(--card);border:1px solid var(--border2);border-radius:999px;padding:5px 12px;font-size:11px;color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s}
+.chip:hover{color:var(--text);border-color:rgba(255,255,255,.25)}
+
+/* messages */
+.umsg{display:flex;justify-content:flex-end}
+.ububble{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:8px 14px;max-width:76%;font-size:14px;line-height:1.55}
+.amsg{display:flex;gap:10px;align-items:flex-start}
+.amsg-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.amsg-body{flex:1;min-width:0}
+.amsg-hd{font-size:10px;color:var(--muted);margin-bottom:4px;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.amsg-txt{font-size:14px;line-height:1.7;color:var(--text);word-break:break-word}
+.amsg-txt strong{color:#fff;font-weight:600}
+.amsg-txt pre{background:#08080e;border:1px solid rgba(255,255,255,.07);border-radius:7px;padding:12px 14px;overflow-x:auto;font-family:'Menlo','Monaco',monospace;font-size:12px;margin:8px 0;line-height:1.6;color:#c9d1d9;white-space:pre-wrap}
+.dots{display:flex;gap:4px;padding:4px 0}
+.dots span{width:6px;height:6px;border-radius:50%;background:var(--dim);animation:bo 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bo{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+
+/* publish banners */
+.banners{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.banner{display:flex;align-items:center;gap:10px;border-radius:9px;padding:10px 13px}
+.banner.netlify{background:rgba(0,173,181,.1);border:1px solid rgba(0,173,181,.28)}
+.banner.railway{background:rgba(29,158,117,.1);border:1px solid rgba(29,158,117,.28)}
+.banner.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25)}
+.banner-icon{font-size:15px;flex-shrink:0}
+.banner-body{flex:1;min-width:0}
+.banner-label{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
+.banner.netlify .banner-label{color:#00adb5}
+.banner.railway .banner-label{color:#34d399}
+.banner.warn .banner-label{color:#fbbf24}
+.banner-url{font-size:12px;color:#fff;word-break:break-all}
+.banner-url a{color:inherit;opacity:.8;text-decoration:none}
+.banner-url a:hover{opacity:1;text-decoration:underline}
+.banner-note{font-size:11px;color:var(--muted)}
+.obtn{border:none;border-radius:6px;padding:6px 11px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;color:#fff;transition:opacity .15s}
+.banner.netlify .obtn{background:#00adb5}
+.banner.railway .obtn{background:#1D9E75}
+.obtn:hover{opacity:.82}
+
+/* error */
+.errmsg{padding:11px 14px;background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.22);border-radius:9px;font-size:13px;color:#f87171}
+.stepmsg{font-size:12px;color:var(--muted);padding:4px 0;font-style:italic}
+
+/* pages panel */
+.ppanel{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px}
+.ppanel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.plist{display:flex;flex-direction:column;gap:7px}
+.prow{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 11px}
+.prow-info{flex:1;min-width:0}
+.prow-name{font-size:13px;color:var(--text);text-transform:capitalize;margin-bottom:2px}
+.prow-links{display:flex;gap:10px;flex-wrap:wrap}
+.prow-links a{font-size:11px;text-decoration:none}
+.prow-links a.nl{color:#00adb5}
+.prow-links a.rl{color:#34d399}
+.prow-links a:hover{text-decoration:underline}
+.delbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;transition:color .15s;flex-shrink:0}
+.delbtn:hover{color:#f87171}
+.nopages{font-size:13px;color:var(--muted);text-align:center;padding:6px 0}
+
+/* input */
+.ibar{display:flex;gap:8px}
+.ibar input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:10px 13px;font-size:14px;color:var(--text);outline:none;font-family:inherit;transition:border-color .15s}
+.ibar input::placeholder{color:#333355}
+.ibar input:focus{border-color:rgba(255,255,255,.2)}
+.ibar button{background:#fff;color:#000;border:none;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s;white-space:nowrap}
+.ibar button:hover{opacity:.85}
+.ibar button:disabled{opacity:.3;cursor:not-allowed}
+
+/* netlify badge */
+.nbadge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 11px;font-size:11px;margin-top:7px;cursor:default}
+.nbadge.on{background:rgba(0,173,181,.13);border:1px solid rgba(0,173,181,.3);color:#00adb5}
+.nbadge.off{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted)}
+.nbadge.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fbbf24;cursor:pointer}
+.nb-dot{width:6px;height:6px;border-radius:50%}
+.on .nb-dot{background:#00adb5}
+.off .nb-dot{background:var(--muted)}
+.warn .nb-dot{background:#fbbf24}
+
+@media(max-width:480px){.roster{grid-template-columns:repeat(2,1fr)}}
+</style>
 </head>
 <body>
 
 <header>
   <h1>AI Agent Network</h1>
-  <p>NEXUS orchestrates your team — webpages are deployed to Netlify automatically.</p>
-  <div class="badges">
-    <div id="netlify-badge" class="badge off"><span class="bdot"></span>Checking Netlify...</div>
-  </div>
+  <p>Ask for anything — NEXUS routes your request to the right specialists automatically.</p>
+  <div id="nbadge" class="nbadge off"><span class="nb-dot"></span>Checking Netlify...</div>
 </header>
 
-<div class="container">
-  <div class="roster-group">
-    <div class="section-label">Creative Agents</div>
-    <div class="roster" id="roster-creative"></div>
+<div class="wrap">
+  <div>
+    <div class="section-title">Creative</div>
+    <div class="roster" id="r-creative"></div>
   </div>
-  <div class="roster-group">
-    <div class="section-label">Code Agents</div>
-    <div class="roster" id="roster-code"></div>
+  <div>
+    <div class="section-title">Code</div>
+    <div class="roster" id="r-code"></div>
   </div>
 
   <div class="feed" id="feed">
-    <div class="empty-state">
-      <p>The network is standing by.<br>Ask for a webpage and it will be built and deployed to Netlify automatically.</p>
+    <div class="empty">
+      The network is ready. Tell it what you need.<br>
       <div class="chips">
-        <button class="chip" onclick="quick('Build a landing page for a yoga studio')">Landing page — yoga studio ↗</button>
-        <button class="chip" onclick="quick('Build a landing page for a coffee shop with menu and contact section')">Landing page — coffee shop ↗</button>
-        <button class="chip" onclick="quick('Build a portfolio page for a freelance photographer')">Portfolio — photographer ↗</button>
-        <button class="chip" onclick="quick('Write a Python web scraper that saves to CSV')">Python scraper ↗</button>
-        <button class="chip" onclick="quick('Create social media ad campaign for a fitness brand')">Ad campaign ↗</button>
+        <button class="chip" onclick="ask('Build a professional insurance agent landing page for Davion Goodman, phone 813-365-6339, email daviongoodman07@yahoo.com, licensed in Florida')">Insurance page — Davion Goodman ↗</button>
+        <button class="chip" onclick="ask('Build a landing page for a coffee shop')">Coffee shop page ↗</button>
+        <button class="chip" onclick="ask('Write a Python script that reads a CSV and outputs stats')">Python CSV script ↗</button>
+        <button class="chip" onclick="ask('Create Instagram ad copy for a fitness brand')">Fitness brand ads ↗</button>
       </div>
     </div>
   </div>
 
-  <div class="input-bar">
-    <input id="inp" type="text" placeholder='e.g. "Build a landing page for my bakery"' onkeydown="if(event.key==='Enter')go()" />
-    <button id="sb" onclick="go()">Send ↗</button>
+  <div class="ibar">
+    <input id="inp" type="text" placeholder='e.g. "Build a landing page for my insurance business"' onkeydown="if(event.key==='Enter')run()"/>
+    <button id="sendbtn" onclick="run()">Send ↗</button>
   </div>
 
-  <div class="pages-panel">
-    <div class="pages-panel-header">
-      <div class="section-label" style="margin-bottom:0">Published Pages</div>
-      <span style="font-size:11px;color:var(--muted)" id="page-count"></span>
+  <div class="ppanel">
+    <div class="ppanel-hd">
+      <div class="section-title" style="margin-bottom:0">Published Pages</div>
+      <span style="font-size:11px;color:var(--muted)" id="pcount"></span>
     </div>
-    <div class="pages-list" id="pages-list">
-      <div class="no-pages">No pages yet — ask WEBCRAFT to build one!</div>
-    </div>
+    <div class="plist" id="plist"><div class="nopages">No pages yet.</div></div>
   </div>
 </div>
 
 <script>
-const AG = {
-  nexus: { id:'nexus', name:'NEXUS', role:'Orchestrator', init:'NX', color:'#7F77DD', group:'creative',
-    sys:`You are NEXUS, an AI orchestrator. Output ONLY valid JSON — no markdown, no extra text:
-{"summary":"one sentence plan","steps":[{"agent":"AGENT_ID","task":"specific instruction","receives_previous":false}]}
-CREATIVE: "web"=WEBCRAFT (HTML pages, auto-deployed to Netlify), "content"=FORGE (copy/articles), "ad"=AMPLIFY (ads/marketing)
-CODE: "python"=PYCRAFT, "cpp"=COREPP, "csharp"=SHARPE, "js"=JSFLOW, "sql"=DATALINK, "bash"=SHELLEX
-Rules: Only needed agents. receives_previous:true if agent needs prior output. Order logically.`
-  },
-  web: { id:'web', name:'WEBCRAFT', role:'Web Builder', init:'WC', color:'#1D9E75', group:'creative',
-    sys:`You are WEBCRAFT, an expert web developer. Build complete, beautiful, self-contained HTML pages.
+// ── Agent definitions ───────────────────────────────────────────
+const AGENTS = {
+  nexus:{id:'nexus',name:'NEXUS',role:'Orchestrator',init:'NX',color:'#7F77DD',group:'creative',
+    sys:`You are NEXUS, an AI orchestrator. Your ONLY job is to output a JSON plan. Output raw JSON only — no markdown, no explanation, nothing else before or after the JSON.
 
-IMPORTANT — always format your response exactly like this:
-One sentence intro.
+Format:
+{"summary":"what you will do in one sentence","steps":[{"agent":"AGENT_ID","task":"detailed specific instructions for this agent","receives_previous":false}]}
 
-\`\`\`html
-<!DOCTYPE html>
-<html>
-... your complete page code here ...
-</html>
-\`\`\`
+Available agents:
+- "web" = WEBCRAFT: builds complete beautiful HTML/CSS/JS pages deployed to Netlify
+- "content" = FORGE: writes copy, articles, descriptions  
+- "ad" = AMPLIFY: ad campaigns, social media, marketing
+- "python" = PYCRAFT: Python code
+- "cpp" = COREPP: C++ code
+- "csharp" = SHARPE: C# code
+- "js" = JSFLOW: JavaScript/TypeScript
+- "sql" = DATALINK: SQL queries and schemas
+- "bash" = SHELLEX: bash/shell scripts
 
-One sentence closing note.
+Rules:
+- Use ONLY the agents needed
+- For a webpage: use "web" agent (and optionally "content" first if copy is needed)
+- Set receives_previous:true if an agent should use the previous agent's output
+- Tasks must be detailed and specific`},
 
-Use Google Fonts via @import, modern CSS, all styles inline. Make it genuinely beautiful.
-If given content from FORGE, incorporate it faithfully into the design.`
-  },
-  content: { id:'content', name:'FORGE', role:'Content Creator', init:'FG', color:'#639922', group:'creative',
-    sys:`You are FORGE, a creative content specialist. Write compelling copy. If output goes to WEBCRAFT, label sections: # Hero Headline, ## Tagline, ## About, ## Services, ## CTA.`
-  },
-  ad: { id:'ad', name:'AMPLIFY', role:'Ad Specialist', init:'AM', color:'#BA7517', group:'creative',
-    sys:`You are AMPLIFY, an advertising expert. Create 2-3 ad variations (Version A/B) with headline, body copy, and CTA. Add a brief strategic note.`
-  },
-  python: { id:'python', name:'PYCRAFT', role:'Python', init:'PY', color:'#3b82f6', group:'code',
-    sys:`You are PYCRAFT, a Python expert (3.10+). Write clean code with type hints, docstrings, error handling. Format: intro, \`\`\`python block, usage notes.`
-  },
-  cpp: { id:'cpp', name:'COREPP', role:'C++', init:'C+', color:'#ef4444', group:'code',
-    sys:`You are COREPP, a C++17/20 expert. Write efficient modern C++ with smart pointers, STL, RAII. Format: intro, \`\`\`cpp block, compilation notes.`
-  },
-  csharp: { id:'csharp', name:'SHARPE', role:'C#', init:'C#', color:'#8b5cf6', group:'code',
-    sys:`You are SHARPE, a C#/.NET expert. Write clean C# 10+ with async/await, LINQ, nullable types. Format: intro, \`\`\`csharp block, dependency notes.`
-  },
-  js: { id:'js', name:'JSFLOW', role:'JS / TypeScript', init:'TS', color:'#f59e0b', group:'code',
-    sys:`You are JSFLOW, a JS/TypeScript expert. Prefer TypeScript. Use async/await, ES2022+. Format: intro, \`\`\`typescript block, usage notes.`
-  },
-  sql: { id:'sql', name:'DATALINK', role:'SQL / Database', init:'DB', color:'#06b6d4', group:'code',
-    sys:`You are DATALINK, a SQL expert. Write clean optimized SQL with schema and performance notes. Format: intro, \`\`\`sql block, notes.`
-  },
-  bash: { id:'bash', name:'SHELLEX', role:'Bash / Shell', init:'SH', color:'#10b981', group:'code',
-    sys:`You are SHELLEX, a Bash expert. Write robust scripts with #!/usr/bin/env bash, set -euo pipefail. Format: intro, \`\`\`bash block, usage instructions.`
-  }
+  web:{id:'web',name:'WEBCRAFT',role:'Web Builder',init:'WC',color:'#1D9E75',group:'creative',
+    sys:`You are WEBCRAFT. Build complete, beautiful, production-ready HTML pages.
+
+You MUST format your response EXACTLY like this — no exceptions:
+1. One sentence describing what you built.
+2. Your complete HTML page inside a code block that starts with \`\`\`html and ends with \`\`\`
+3. One sentence closing note.
+
+The HTML must:
+- Start with <!DOCTYPE html>
+- Include all CSS inline in a <style> tag
+- Import Google Fonts with @import
+- Be beautiful, modern, and complete
+- Work as a standalone file
+
+If given content from a previous agent, incorporate it into the page design.`},
+
+  content:{id:'content',name:'FORGE',role:'Content Creator',init:'FG',color:'#639922',group:'creative',
+    sys:`You are FORGE. Write compelling, well-structured content. If your output will be used by a web builder, use clear section labels like: # Hero Headline, ## Tagline, ## About, ## Services, ## Contact, ## CTA`},
+
+  ad:{id:'ad',name:'AMPLIFY',role:'Ad Specialist',init:'AM',color:'#BA7517',group:'creative',
+    sys:`You are AMPLIFY. Create 2-3 ad variations (Version A/B/C) with headline, body copy, and CTA for each. Add brief strategic notes.`},
+
+  python:{id:'python',name:'PYCRAFT',role:'Python',init:'PY',color:'#3b82f6',group:'code',
+    sys:`You are PYCRAFT. Write clean Python 3.10+ with type hints, docstrings, error handling. Format: intro, \`\`\`python code, usage notes.`},
+
+  cpp:{id:'cpp',name:'COREPP',role:'C++',init:'C+',color:'#ef4444',group:'code',
+    sys:`You are COREPP. Write modern C++17/20 with smart pointers, STL, RAII. Format: intro, \`\`\`cpp code, build notes.`},
+
+  csharp:{id:'csharp',name:'SHARPE',role:'C#',init:'C#',color:'#8b5cf6',group:'code',
+    sys:`You are SHARPE. Write clean C# with async/await, LINQ, nullable types. Format: intro, \`\`\`csharp code, notes.`},
+
+  js:{id:'js',name:'JSFLOW',role:'JS/TypeScript',init:'TS',color:'#f59e0b',group:'code',
+    sys:`You are JSFLOW. Prefer TypeScript. Use async/await, ES2022+. Format: intro, \`\`\`typescript code, usage notes.`},
+
+  sql:{id:'sql',name:'DATALINK',role:'SQL',init:'DB',color:'#06b6d4',group:'code',
+    sys:`You are DATALINK. Write clean optimized SQL with schema and indexes. Format: intro, \`\`\`sql code, performance notes.`},
+
+  bash:{id:'bash',name:'SHELLEX',role:'Bash',init:'SH',color:'#10b981',group:'code',
+    sys:`You are SHELLEX. Write robust bash with set -euo pipefail. Format: intro, \`\`\`bash code, usage instructions.`}
 };
 
-const LANG_COLORS = {
-  python:{bg:'rgba(59,130,246,.15)',text:'#93c5fd'},
-  cpp:{bg:'rgba(239,68,68,.15)',text:'#fca5a5'},
-  csharp:{bg:'rgba(139,92,246,.15)',text:'#c4b5fd'},
-  js:{bg:'rgba(245,158,11,.15)',text:'#fcd34d'},
-  sql:{bg:'rgba(6,182,212,.15)',text:'#67e8f9'},
-  bash:{bg:'rgba(16,185,129,.15)',text:'#6ee7b7'},
-};
+const LANG_BG = {python:'rgba(59,130,246,.12)',cpp:'rgba(239,68,68,.12)',csharp:'rgba(139,92,246,.12)',js:'rgba(245,158,11,.12)',sql:'rgba(6,182,212,.12)',bash:'rgba(16,185,129,.12)'};
+const LANG_TX = {python:'#93c5fd',cpp:'#fca5a5',csharp:'#c4b5fd',js:'#fcd34d',sql:'#67e8f9',bash:'#6ee7b7'};
 
-let busy = false, currentRequest = '';
+let busy = false;
+let currentRequest = '';
 
-function buildRoster(g, cid) {
-  const el = document.getElementById(cid);
-  Object.values(AG).filter(a => a.group === g).forEach(a => {
-    const d = document.createElement('div'); d.className='agent-card'; d.id='c'+a.id;
-    d.innerHTML=`<div class="agent-top"><div class="avatar" style="background:${a.color}">${a.init}</div><span class="agent-name">${a.name}</span></div><div class="agent-role">${a.role}</div><div class="agent-status"><span class="dot" id="d${a.id}"></span><span class="status-label" id="s${a.id}">idle</span></div>`;
+// ── Build rosters ───────────────────────────────────────────────
+['creative','code'].forEach(grp => {
+  const el = document.getElementById('r-'+grp);
+  Object.values(AGENTS).filter(a=>a.group===grp).forEach(a=>{
+    const d = document.createElement('div');
+    d.className='ac'; d.id='ac-'+a.id;
+    d.innerHTML=`<div class="ac-top"><div class="av" style="background:${a.color}">${a.init}</div><span class="ac-name">${a.name}</span></div><div class="ac-role">${a.role}</div><div class="ac-status"><span class="dot" id="dot-${a.id}"></span><span class="sl" id="sl-${a.id}">idle</span></div>`;
     el.appendChild(d);
   });
-}
-buildRoster('creative','roster-creative');
-buildRoster('code','roster-code');
+});
 
-function setS(id, st) {
-  const dot=document.getElementById('d'+id), lbl=document.getElementById('s'+id), card=document.getElementById('c'+id);
+function setAgent(id, state) {
+  const dot=document.getElementById('dot-'+id);
+  const sl=document.getElementById('sl-'+id);
+  const card=document.getElementById('ac-'+id);
   if(!dot)return;
-  dot.className='dot'+(st==='thinking'?' thinking':'');
-  dot.style.background=st==='thinking'?AG[id].color:st==='done'?'#4ade80':'var(--subtle)';
-  lbl.textContent=st; lbl.style.color=st==='thinking'?AG[id].color:st==='done'?'#4ade80':'var(--muted)';
-  card.classList.toggle('active',st==='thinking'); card.style.borderColor=st==='thinking'?AG[id].color:'';
+  const a=AGENTS[id];
+  dot.className='dot'+(state==='thinking'?' pulse':'');
+  dot.style.background=state==='thinking'?a.color:state==='done'?'#4ade80':'var(--dim)';
+  sl.textContent=state;
+  sl.style.color=state==='thinking'?a.color:state==='done'?'#4ade80':'var(--muted)';
+  if(card){card.classList.toggle('on',state==='thinking');card.style.borderColor=state==='thinking'?a.color:'';}
 }
-function resetAll(){Object.keys(AG).forEach(id=>setS(id,'idle'));}
+function resetAgents(){Object.keys(AGENTS).forEach(id=>setAgent(id,'idle'));}
 
-const feed=document.getElementById('feed');
+// ── Feed helpers ────────────────────────────────────────────────
+const feed = document.getElementById('feed');
+function scroll(){feed.scrollTop=feed.scrollHeight;}
 function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function fmt(agentId,text){
-  const lc=LANG_COLORS[agentId];
+function renderText(agentId, text) {
+  const bg=LANG_BG[agentId]||'';
+  const tx=LANG_TX[agentId]||'';
   return text.split(/(```[\s\S]*?```)/g).map(p=>{
     if(p.startsWith('```')){
+      const lang=(p.match(/^```([\w#+-]+)/)||[])[1]||'';
       const code=p.replace(/^```[\w#+-]*\n?/,'').replace(/\n?```\s*$/,'').trim();
-      const lm=p.match(/^```([\w#+-]+)/);
-      const tag=lc&&lm?`<span class="lang-tag" style="background:${lc.bg};color:${lc.text}">${lm[1]}</span><br>`:'';
+      const tag=lang&&bg?`<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase;background:${bg};color:${tx}">${lang}</span><br>`:'';
       return `${tag}<pre>${esc(code)}</pre>`;
     }
     return esc(p).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
   }).join('');
 }
 
-function addUserMsg(t){const d=document.createElement('div');d.className='user-msg';d.innerHTML=`<div class="user-bubble">${esc(t)}</div>`;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;}
-function addThinking(id){const a=AG[id],d=document.createElement('div');d.className='msg';d.id='th'+id;d.innerHTML=`<div class="msg-avatar" style="background:${a.color}">${a.init}</div><div class="msg-body"><div class="msg-header">${a.name} · ${a.role}</div><div class="thinking-dots"><span></span><span></span><span></span></div></div>`;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;}
-
-function replaceThinking(id,text,extra=''){
-  const d=document.getElementById('th'+id); if(!d)return;
-  const a=AG[id];
-  d.innerHTML=`<div class="msg-avatar" style="background:${a.color}">${a.init}</div><div class="msg-body"><div class="msg-header">${a.name} · ${a.role}</div><div class="msg-content">${fmt(id,text)}</div>${extra}</div>`;
-  feed.scrollTop=feed.scrollHeight;
+function addUserMsg(txt){
+  const d=document.createElement('div');d.className='umsg';
+  d.innerHTML=`<div class="ububble">${esc(txt)}</div>`;
+  feed.appendChild(d);scroll();
 }
 
-function pubBanners(railwayUrl, netlifyUrl, netlifyError) {
-  const origin = window.location.origin;
-  let html = '<div class="pub-wrap">';
-  if (netlifyUrl) {
-    html += `<div class="pub-banner netlify"><div class="pub-icon">🚀</div><div class="pub-text"><div class="pub-label">✓ Deployed to Netlify</div><div class="pub-link"><a href="${netlifyUrl}" target="_blank">${netlifyUrl}</a></div></div><button class="open-btn" onclick="window.open('${netlifyUrl}','_blank')">Open ↗</button></div>`;
-  } else if (netlifyError) {
-    html += `<div class="pub-banner error"><div class="pub-icon">⚠</div><div class="pub-text"><div class="pub-label">Netlify Deploy Failed</div><div class="pub-note">${netlifyError} — page saved to Railway below</div></div></div>`;
+function addThinking(id){
+  const a=AGENTS[id];
+  const d=document.createElement('div');d.className='amsg';d.id='msg-'+id;
+  d.innerHTML=`<div class="amsg-av" style="background:${a.color}">${a.init}</div><div class="amsg-body"><div class="amsg-hd">${a.name} · ${a.role}</div><div class="dots"><span></span><span></span><span></span></div></div>`;
+  feed.appendChild(d);scroll();
+}
+
+function updateMsg(id, text, extra=''){
+  const d=document.getElementById('msg-'+id);
+  if(!d)return;
+  const a=AGENTS[id];
+  d.innerHTML=`<div class="amsg-av" style="background:${a.color}">${a.init}</div><div class="amsg-body"><div class="amsg-hd">${a.name} · ${a.role}</div><div class="amsg-txt">${renderText(id,text)}</div>${extra}</div>`;
+  scroll();
+}
+
+function addStep(msg){
+  const d=document.createElement('div');d.className='stepmsg';d.textContent=msg;
+  feed.appendChild(d);scroll();
+}
+
+function addError(msg){
+  const d=document.createElement('div');d.className='errmsg';d.textContent=msg;
+  feed.appendChild(d);scroll();
+}
+
+function makeBanners(railwayUrl, netlifyUrl, netlifyError){
+  const origin=window.location.origin;
+  let h='<div class="banners">';
+  if(netlifyUrl){
+    h+=`<div class="banner netlify"><div class="banner-icon">🚀</div><div class="banner-body"><div class="banner-label">✓ Live on Netlify</div><div class="banner-url"><a href="${netlifyUrl}" target="_blank">${netlifyUrl}</a></div></div><button class="obtn" onclick="window.open('${netlifyUrl}','_blank')">Open ↗</button></div>`;
+  } else if(netlifyError){
+    h+=`<div class="banner warn"><div class="banner-icon">⚠</div><div class="banner-body"><div class="banner-label">Netlify deploy failed</div><div class="banner-note">${netlifyError}</div></div></div>`;
   }
-  html += `<div class="pub-banner railway"><div class="pub-icon">🌐</div><div class="pub-text"><div class="pub-label">✓ Saved to Railway</div><div class="pub-link"><a href="${railwayUrl}" target="_blank">${origin+railwayUrl}</a></div></div><button class="open-btn" onclick="window.open('${railwayUrl}','_blank')">Open ↗</button></div>`;
-  html += '</div>';
-  return html;
+  if(railwayUrl){
+    h+=`<div class="banner railway"><div class="banner-icon">🌐</div><div class="banner-body"><div class="banner-label">✓ Saved on Railway</div><div class="banner-url"><a href="${railwayUrl}" target="_blank">${origin+railwayUrl}</a></div></div><button class="obtn" onclick="window.open('${railwayUrl}','_blank')">Open ↗</button></div>`;
+  }
+  h+='</div>';
+  return h;
 }
 
-function addErr(msg){const d=document.createElement('div');d.className='err-box';d.textContent='Error: '+msg;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;}
-function makeSlug(t){return t.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim().replace(/\s+/g,'-').substring(0,45)+'-'+Date.now().toString(36);}
+// ── Core API call ───────────────────────────────────────────────
+async function callAgent(agentId, userMessage) {
+  setAgent(agentId, 'thinking');
+  addThinking(agentId);
 
-async function apiCall(agentId, userMsg) {
-  setS(agentId,'thinking'); addThinking(agentId);
-  const res = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,system:AG[agentId].sys,messages:[{role:'user',content:userMsg}]})});
-  const data = await res.json();
-  if(data.error) throw new Error(data.error.message);
-  const text = (data.content||[]).map(b=>b.text||'').join('');
-  setS(agentId,'done');
+  let res;
+  try {
+    res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: AGENTS[agentId].sys,
+        messages: [{role:'user', content: userMessage}]
+      })
+    });
+  } catch(e) {
+    setAgent(agentId, 'idle');
+    throw new Error(`Network error calling ${agentId}: ${e.message}`);
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch(e) {
+    setAgent(agentId, 'idle');
+    throw new Error(`Bad response from server for ${agentId}`);
+  }
+
+  if(data.error) {
+    setAgent(agentId, 'idle');
+    throw new Error(`${AGENTS[agentId].name} error: ${data.error.message}`);
+  }
+
+  const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  setAgent(agentId, 'done');
   return text;
 }
 
-async function go() {
-  if(busy)return;
-  const inp=document.getElementById('inp'); const txt=inp.value.trim(); if(!txt)return;
-  inp.value=''; busy=true; currentRequest=txt;
-  document.getElementById('sb').disabled=true;
-  feed.innerHTML=''; resetAll(); addUserMsg(txt);
-
-  try {
-    const planRaw = await apiCall('nexus',`User request: "${txt}"\n\nCreate an execution plan.`);
-    let plan;
-    try {
-      const cl=planRaw.replace(/```json\n?|```\n?/g,'').trim();
-      plan=JSON.parse(cl.slice(cl.indexOf('{'),cl.lastIndexOf('}')+1));
-    } catch(e){replaceThinking('nexus',planRaw);busy=false;document.getElementById('sb').disabled=false;return;}
-
-    const names=(plan.steps||[]).map(s=>AG[s.agent]?.name||s.agent).join(' → ');
-    replaceThinking('nexus',`**Plan:** ${plan.summary}\n\n**Routing to:** ${names}`);
-
-    let prev='';
-    for(const step of(plan.steps||[])){
-      if(!AG[step.agent])continue;
-      let prompt=step.task;
-      if(step.receives_previous&&prev) prompt+=`\n\n---\nFrom previous agent:\n${prev}\n---`;
-      const out=await apiCall(step.agent,prompt);
-
-      if(step.agent==='web'){
-        // ── Flexible regex: matches ```html, ```HTML, or plain ```
-        const htmlMatch = out.match(/```(?:html|HTML)?\s*\n([\s\S]*?)```/) ||
-                          out.match(/```(<!DOCTYPE[\s\S]*?)```/i);
-        if(htmlMatch){
-          const html = htmlMatch[1].trim();
-          const slug = makeSlug(currentRequest);
-          const pubRes = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html,slug})});
-          const pub = await pubRes.json();
-          replaceThinking('web', out, pubBanners(pub.url, pub.netlify_url, pub.netlify_error));
-          loadPages(); prev=out; continue;
-        }
-      }
-      replaceThinking(step.agent,out);
-      prev=out;
-    }
-  } catch(err){
-    Object.keys(AG).forEach(id=>{const el=document.getElementById('th'+id);if(el)el.remove();});
-    addErr(err.message); resetAll();
-  }
-  busy=false; document.getElementById('sb').disabled=false;
+// ── Extract HTML from WEBCRAFT output ──────────────────────────
+function extractHTML(text) {
+  // Try ```html ... ``` first
+  let m = text.match(/```html\s*\n([\s\S]*?)```/i);
+  if(m) return m[1].trim();
+  // Try plain ``` ... ``` that contains <!DOCTYPE
+  m = text.match(/```\s*\n(<!DOCTYPE[\s\S]*?)```/i);
+  if(m) return m[1].trim();
+  // Try any code block that contains <html
+  m = text.match(/```[\w]*\s*\n([\s\S]*?<html[\s\S]*?)```/i);
+  if(m) return m[1].trim();
+  return null;
 }
 
-function quick(txt){document.getElementById('inp').value=txt;go();}
+// ── Publish page ────────────────────────────────────────────────
+async function publishPage(html, slug) {
+  try {
+    const res = await fetch('/api/publish', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({html, slug})
+    });
+    return await res.json();
+  } catch(e) {
+    return {error: e.message, url: null, netlify_url: null};
+  }
+}
 
-async function loadPages(){
-  try{
-    const res=await fetch('/api/pages'); const data=await res.json();
-    const list=document.getElementById('pages-list'),count=document.getElementById('page-count');
-    const pages=data.pages||[];
-    count.textContent=pages.length?`${pages.length} page${pages.length>1?'s':''}`:'';
-    if(!pages.length){list.innerHTML='<div class="no-pages">No pages yet — ask WEBCRAFT to build one!</div>';return;}
-    list.innerHTML=pages.map(p=>`<div class="page-row" id="row-${p.slug}"><div class="page-row-info"><div class="page-row-name">${esc(p.name||p.slug)}</div><div class="page-row-links">${p.netlify_url?`<a class="netlify-link" href="${p.netlify_url}" target="_blank">Netlify ↗</a>`:''}<a class="railway-link" href="${p.url}" target="_blank">Railway ↗</a></div></div><button class="del-btn" onclick="deletePage('${p.slug}')" title="Delete">✕</button></div>`).join('');
+function makeSlug(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim().replace(/\s+/g,'-').substring(0,45)+'-'+Date.now().toString(36);
+}
+
+// ── Main run function ───────────────────────────────────────────
+async function run() {
+  if(busy) return;
+  const inp = document.getElementById('inp');
+  const txt = inp.value.trim();
+  if(!txt) return;
+
+  inp.value = '';
+  busy = true;
+  document.getElementById('sendbtn').disabled = true;
+  feed.innerHTML = '';
+  resetAgents();
+  currentRequest = txt;
+  addUserMsg(txt);
+
+  try {
+    // ── Step 1: NEXUS plans ──
+    addStep('NEXUS is planning your request...');
+    const planText = await callAgent('nexus', `User request: "${txt}"\n\nAnalyze this request and output your JSON execution plan.`);
+
+    // Parse the JSON plan
+    let plan;
+    try {
+      // Strip any accidental markdown fences
+      const clean = planText.replace(/```json\n?|```\n?/g,'').trim();
+      // Find the JSON object
+      const start = clean.indexOf('{');
+      const end = clean.lastIndexOf('}');
+      if(start === -1 || end === -1) throw new Error('No JSON found');
+      plan = JSON.parse(clean.slice(start, end+1));
+    } catch(e) {
+      // NEXUS returned something unparseable — show it and stop
+      updateMsg('nexus', planText);
+      addError(`NEXUS returned an unexpected format. Try rephrasing your request.`);
+      busy = false;
+      document.getElementById('sendbtn').disabled = false;
+      return;
+    }
+
+    // Show NEXUS plan
+    const agentNames = (plan.steps||[]).map(s=>AGENTS[s.agent]?.name||s.agent).filter(Boolean).join(' → ');
+    updateMsg('nexus', `**Plan:** ${plan.summary}\n\n**Team:** ${agentNames}`);
+
+    if(!plan.steps || plan.steps.length === 0) {
+      addError('NEXUS returned an empty plan. Try being more specific.');
+      busy = false;
+      document.getElementById('sendbtn').disabled = false;
+      return;
+    }
+
+    // ── Step 2: Execute each agent in order ──
+    let previousOutput = '';
+
+    for(let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i];
+      const agentId = step.agent;
+
+      if(!AGENTS[agentId]) {
+        addStep(`Skipping unknown agent: ${agentId}`);
+        continue;
+      }
+
+      // Build this agent's prompt
+      let prompt = step.task;
+      if(step.receives_previous && previousOutput) {
+        prompt += `\n\n--- Output from previous agent ---\n${previousOutput}\n---`;
+      }
+
+      addStep(`${AGENTS[agentId].name} is working...`);
+
+      // Call the agent
+      const output = await callAgent(agentId, prompt);
+
+      // If this is WEBCRAFT, extract and publish the HTML
+      if(agentId === 'web') {
+        const html = extractHTML(output);
+        if(html) {
+          addStep('Publishing page...');
+          const slug = makeSlug(currentRequest);
+          const pub = await publishPage(html, slug);
+          updateMsg('web', output, makeBanners(pub.url, pub.netlify_url, pub.netlify_error));
+          loadPages();
+        } else {
+          // WEBCRAFT didn't produce a proper code block
+          updateMsg('web', output);
+          addError('WEBCRAFT did not produce an HTML code block. The page was not published. Try asking again.');
+        }
+      } else {
+        updateMsg(agentId, output);
+      }
+
+      previousOutput = output;
+    }
+
+  } catch(err) {
+    // Clean up any pending thinking indicators
+    Object.keys(AGENTS).forEach(id => {
+      const el = document.getElementById('msg-'+id);
+      if(el && el.querySelector('.dots')) {
+        el.remove();
+      }
+    });
+    resetAgents();
+    addError(err.message);
+  }
+
+  busy = false;
+  document.getElementById('sendbtn').disabled = false;
+}
+
+function ask(txt){
+  document.getElementById('inp').value = txt;
+  run();
+}
+
+// ── Load published pages ────────────────────────────────────────
+async function loadPages() {
+  try {
+    const res = await fetch('/api/pages');
+    const data = await res.json();
+    const pages = data.pages||[];
+    const list = document.getElementById('plist');
+    const count = document.getElementById('pcount');
+    count.textContent = pages.length ? `${pages.length} page${pages.length>1?'s':''}` : '';
+    if(!pages.length){list.innerHTML='<div class="nopages">No pages yet.</div>';return;}
+    list.innerHTML = pages.map(p=>`
+      <div class="prow" id="prow-${p.slug}">
+        <div class="prow-info">
+          <div class="prow-name">${esc(p.name||p.slug)}</div>
+          <div class="prow-links">
+            ${p.netlify_url?`<a class="nl" href="${p.netlify_url}" target="_blank">Netlify ↗</a>`:''}
+            <a class="rl" href="${p.url}" target="_blank">Railway ↗</a>
+          </div>
+        </div>
+        <button class="delbtn" onclick="delPage('${p.slug}')" title="Delete">✕</button>
+      </div>`).join('');
   } catch(e){}
 }
 
-async function deletePage(slug){await fetch('/api/pages/'+slug,{method:'DELETE'});loadPages();}
-
-async function testNetlify(){
-  const badge=document.getElementById('netlify-badge');
-  badge.className='badge warn'; badge.innerHTML='<span class="bdot"></span>Testing...';
-  const res=await fetch('/api/test-netlify'); const data=await res.json();
-  if(data.ok){badge.className='badge on';badge.innerHTML=`<span class="bdot"></span>Netlify connected (${data.email})`;}
-  else{badge.className='badge warn';badge.innerHTML=`<span class="bdot"></span>${data.reason} — click for details`;badge.title=JSON.stringify(data.detail||'');badge.onclick=()=>alert(data.reason+'\n\n'+JSON.stringify(data.detail||'',null,2));}
+async function delPage(slug){
+  await fetch('/api/pages/'+slug,{method:'DELETE'});
+  loadPages();
 }
 
-async function init(){
-  try{
-    const res=await fetch('/api/status'); const data=await res.json();
-    const badge=document.getElementById('netlify-badge');
-    if(data.netlify){
-      badge.className='badge warn'; badge.innerHTML='<span class="bdot"></span>Netlify token found — click to test';
-      badge.style.cursor='pointer'; badge.onclick=testNetlify;
+// ── Init ────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    const badge = document.getElementById('nbadge');
+    if(data.netlify) {
+      badge.className='nbadge warn';
+      badge.innerHTML='<span class="nb-dot"></span>Netlify token found — click to verify';
+      badge.style.cursor='pointer';
+      badge.onclick = async () => {
+        badge.innerHTML='<span class="nb-dot"></span>Testing...';
+        const r = await fetch('/api/test-netlify');
+        const d = await r.json();
+        if(d.ok){badge.className='nbadge on';badge.innerHTML=`<span class="nb-dot"></span>Netlify connected (${d.email})`;badge.onclick=null;}
+        else{badge.className='nbadge warn';badge.innerHTML=`<span class="nb-dot"></span>Netlify error: ${d.reason}`;badge.title=d.reason;}
+      };
     } else {
-      badge.className='badge off'; badge.innerHTML='<span class="bdot"></span>Netlify not connected — add NETLIFY_TOKEN in Railway';
+      badge.className='nbadge off';
+      badge.innerHTML='<span class="nb-dot"></span>Netlify not connected — add NETLIFY_TOKEN in Railway';
     }
   } catch(e){}
   loadPages();
